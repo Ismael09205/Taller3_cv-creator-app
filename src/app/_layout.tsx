@@ -1,18 +1,44 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import {Stack} from "expo-router";
+import {CVProvider} from "../../context/CVContext";
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+export default function RootLayout(){
+  return(
+    <CVProvider>
+      <Stack
+        screenOptions={{
+          headerStyle:{
+            backgroundColor:"#3498db",
+          },
+          headerTintColor:"#fff",
+          headerTitleStyle:{
+            fontWeight:"bold",
+          },
+        }}
+      
+      >
+        <Stack.Screen
+        name="indez"
+        options={{
+          title:"Crear CV",
+          headerShown:true,
 
-SplashScreen.preventAutoHideAsync();
+        }}
+      />
+      <Stack.Screen
+        name="personal-info"
+        options={{
+          title:"Experiencia Laboral",
+        }}
+      />
+      <Stack.Screen
+        name="preview"
+        options={{
+          title:"Vista Previa",
+          presentation: "modal",
+        }}
+/>
+</Stack>
+</CVProvider>
+  )
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
-  );
 }
