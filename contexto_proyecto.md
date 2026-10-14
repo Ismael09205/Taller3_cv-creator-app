@@ -2,6 +2,18 @@
 
 
 ================================================
+ðŸ“„ ARCHIVO: .github\agents\agent-ui-implement.md
+================================================
+
+
+
+================================================
+ðŸ“„ ARCHIVO: .github\copilot-instructions.md
+================================================
+
+
+
+================================================
 ðŸ“„ ARCHIVO: .gitignore
 ================================================
 
@@ -135,7 +147,8 @@ Docs: https://docs.expo.dev/eas/index.md
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -252,12 +265,67 @@ export const useCVContext = () => {
 
 
 ================================================
+ðŸ“„ ARCHIVO: docs\Requerimiento\Requerimiento-UI.md
+================================================
+
+# Requisito de diseño: identidad visual EPN
+
+## Descripción
+
+La aplicación móvil `cv-creator-app` debe mantener una identidad visual coherente basada en la paleta de colores de referencia de la Escuela Politécnica Nacional (EPN).
+
+Esta identidad debe aplicarse de manera uniforme en todas las pantallas y componentes de la aplicación, garantizando una presentación visual consistente, una adecuada legibilidad del contenido y una diferenciación clara de los elementos interactivos.
+
+## Criterios de cumplimiento
+
+- **Uso de la paleta:** los elementos de la interfaz deben utilizar los colores de referenciados dentro de la SKILL pertinente
+- **Consistencia visual:** los componentes que cumplen funciones equivalentes deben mantener criterios de color y presentación uniformes en toda la aplicación.
+- **Legibilidad:** las combinaciones de colores deben proporcionar contraste suficiente para distinguir los textos, iconos y controles sobre sus respectivos fondos.
+- **Aplicación transversal:** la identidad visual debe mantenerse en fondos, encabezados, botones, menús, modales, campos y demás elementos de la interfaz.
+- **Continuidad del diseño:** las nuevas pantallas y las modificaciones de componentes existentes deben conservar la identidad visual establecida, evitando variaciones de color injustificadas.
+
+## Verificación
+
+El requisito se considera cumplido cuando las pantallas y los componentes de la aplicación mantienen una identidad visual consistente, utilizan adecuadamente la paleta de referencia y permiten identificar y leer claramente sus elementos.
+
+================================================
 ðŸ“„ ARCHIVO: expo-env.d.ts
 ================================================
 
 /// <reference types="expo/types" />
 
 // NOTE: This file should not be edited and should be in your git ignore
+
+================================================
+ðŸ“„ ARCHIVO: implementacion_validaciones.md
+================================================
+
+# Estrategia de Validacion en Tiempo Real
+
+Para lograr que los formularios muestren errores de inmediato al escribir, usaremos 3 herramientas clave:
+
+## 1. Dependencias Necesarias
+Ejecuta el siguiente comando en tu proyecto:
+`npx expo install react-hook-form zod @hookform/resolvers`
+
+## 2. Componentes de la Solucion
+
+*   **Zod (Las Reglas):** 
+    Sirve para crear un "esquema". Aqui dictas que el telefono solo lleve numeros o que el email tenga el formato correcto (`z.object(...)`).
+*   **React Hook Form (El Motor):** 
+    Controla el formulario sin volver lenta la aplicacion. La clave es usarlo con la configuracion `mode: "onChange"` para que reaccione a cada tecla presionada.
+*   **Resolvers (El Puente):** 
+    Une Zod con React Hook Form para que los errores fluyan automaticamente.
+
+## 3. Pasos de Implementacion
+
+1.  **Importar dependencias** en tu pantalla (ej. `personal-info.tsx`).
+2.  **Crear el esquema Zod** fuera del componente principal.
+3.  **Llamar a useForm** con el esquema y el modo "onChange".
+4.  **Envolver cada InputField** con el componente `<Controller />` de React Hook Form.
+5.  **Inyectar el error** mandando `errors.campo?.message` a la propiedad `error` que ya tiene tu `InputField`.
+
+De esta forma, si el usuario escribe una letra en el telefono, la pantalla pintara el error en rojo en ese mismo instante.
 
 ================================================
 ðŸ“„ ARCHIVO: package.json
@@ -269,6 +337,8 @@ export const useCVContext = () => {
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.24",
+    "@hookform/resolvers": "^5.9.1",
+    "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~57.0.29",
     "expo-constants": "~57.0.22",
     "expo-device": "~57.0.2",
@@ -284,13 +354,15 @@ export const useCVContext = () => {
     "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-hook-form": "^7.90.0",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-web": "~0.21.0",
-    "react-native-worklets": "0.10.1"
+    "react-native-worklets": "0.10.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
@@ -496,7 +568,7 @@ rl.question(
 
 // app/education.tsx
 
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -505,45 +577,55 @@ import {
   Alert,
   TouchableOpacity,
 } from "react-native";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useRouter } from "expo-router";
 import { InputField } from "../components/InputField";
+import { DatePickerField } from "../components/DatePickerField";
 import { NavigationButton } from "../components/NavigationButton";
 import { useCVContext } from "../../context/CVContext";
 import { Education } from "../../types/cv.types";
 
+const educationSchema = z.object({
+  institution: z.string().trim().min(1, "La institución es obligatoria"),
+  degree: z.string().trim().min(1, "El título o grado es obligatorio"),
+  field: z.string(),
+  graduationYear: z
+    .string()
+    .refine(
+      (value) => value === "" || /^\d{4}$/.test(value),
+      "Selecciona un año de graduación válido"
+    ),
+});
+
 export default function EducationScreen() {
   const router = useRouter();
   const { cvData, addEducation, deleteEducation } = useCVContext();
-
-  const [formData, setFormData] = useState<Omit<Education, "id">>({
-    institution: "",
-    degree: "",
-    field: "",
-    graduationYear: "",
-  });
-
-  const handleAdd = () => {
-    if (!formData.institution || !formData.degree) {
-      Alert.alert("Error", "Por favor completa al menos institución y título");
-      return;
-    }
-
-    const newEducation: Education = {
-      id: Date.now().toString(),
-      ...formData,
-    };
-
-    addEducation(newEducation);
-
-    // Limpiar formulario
-    setFormData({
+  const { control, handleSubmit, reset } = useForm<Omit<Education, "id">>({
+    defaultValues: {
       institution: "",
       degree: "",
       field: "",
       graduationYear: "",
-    });
+    },
+    resolver: zodResolver(educationSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
+  });
 
-    Alert.alert("Éxito", "Educación agregada correctamente");
+  const handleAdd = () => {
+    const id = Date.now().toString();
+    void handleSubmit((formData) => {
+      const newEducation: Education = {
+        id,
+        ...formData,
+      };
+
+      addEducation(newEducation);
+      reset();
+      Alert.alert("Éxito", "Educación agregada correctamente");
+    })();
   };
 
   const handleDelete = (id: string) => {
@@ -562,37 +644,65 @@ export default function EducationScreen() {
       <View style={styles.content}>
         <Text style={styles.sectionTitle}>Agregar Nueva Educación</Text>
 
-        <InputField
-          label="Institución *"
-          placeholder="Nombre de la universidad/institución"
-          value={formData.institution}
-          onChangeText={(text) =>
-            setFormData({ ...formData, institution: text })
-          }
+        <Controller
+          control={control}
+          name="institution"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Institución *"
+              placeholder="Nombre de la universidad/institución"
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+            />
+          )}
         />
 
-        <InputField
-          label="Título/Grado *"
-          placeholder="Ej: Licenciatura, Maestría"
-          value={formData.degree}
-          onChangeText={(text) => setFormData({ ...formData, degree: text })}
+        <Controller
+          control={control}
+          name="degree"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Título/Grado *"
+              placeholder="Ej: Licenciatura, Maestría"
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+            />
+          )}
         />
 
-        <InputField
-          label="Área de Estudio"
-          placeholder="Ej: Ingeniería en Sistemas"
-          value={formData.field}
-          onChangeText={(text) => setFormData({ ...formData, field: text })}
+        <Controller
+          control={control}
+          name="field"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Área de Estudio"
+              placeholder="Ej: Ingeniería en Sistemas"
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+            />
+          )}
         />
 
-        <InputField
-          label="Año de Graduación"
-          placeholder="Ej: 2023"
-          value={formData.graduationYear}
-          onChangeText={(text) =>
-            setFormData({ ...formData, graduationYear: text })
-          }
-          keyboardType="numeric"
+        <Controller
+          control={control}
+          name="graduationYear"
+          render={({ field, fieldState }) => (
+            <DatePickerField
+              label="Año de Graduación"
+              placeholder="Selecciona un año"
+              value={field.value}
+              onChangeText={field.onChange}
+              error={fieldState.error?.message}
+              precision="year"
+              clearable
+            />
+          )}
         />
 
         <NavigationButton title="Agregar Educación" onPress={handleAdd} />
@@ -706,7 +816,7 @@ const styles = StyleSheet.create({
 ðŸ“„ ARCHIVO: src\app\experience.tsx
 ================================================
 
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -715,50 +825,71 @@ import {
   Alert,
   TouchableOpacity,
 } from "react-native";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useRouter } from "expo-router";
 import { InputField } from "../components/InputField";
+import { DatePickerField } from "../components/DatePickerField";
 import { NavigationButton } from "../components/NavigationButton";
+import { isPickerValueBefore } from "../../types/datePickerUtils";
 import { useCVContext } from "../../context/CVContext";
 import { Experience } from "../../types/cv.types";
+
+const experienceSchema = z
+  .object({
+    company: z.string().trim().min(1, "La empresa es obligatoria"),
+    position: z.string().trim().min(1, "El cargo es obligatorio"),
+    startDate: z.string().min(1, "La fecha de inicio es obligatoria"),
+    endDate: z.string(),
+    description: z.string(),
+  })
+  .superRefine((values, context) => {
+    if (
+      values.startDate &&
+      values.endDate &&
+      isPickerValueBefore(values.endDate, values.startDate, "month")
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: "La fecha de fin no puede ser anterior al inicio",
+      });
+    }
+  });
 
 export default function ExperienceScreen() {
   const router = useRouter();
   const { cvData, addExperience, deleteExperience } = useCVContext();
-
-  const [formData, setFormData] = useState<Omit<Experience, "id">>({
-    company: "",
-    position: "",
-    startDate: "",
-    endDate: "",
-    description: "",
-  });
-
-  const handleAdd = () => {
-    if (!formData.company || !formData.position || !formData.startDate) {
-      Alert.alert(
-        "Error",
-        "Por favor completa al menos empresa, cargo y fecha de inicio"
-      );
-      return;
-    }
-
-    const newExperience: Experience = {
-      id: Date.now().toString(),
-      ...formData,
-    };
-
-    addExperience(newExperience);
-
-    // Limpiar formulario
-    setFormData({
+  const {
+    control,
+    handleSubmit,
+    reset,
+  } = useForm<Omit<Experience, "id">>({
+    defaultValues: {
       company: "",
       position: "",
       startDate: "",
       endDate: "",
       description: "",
-    });
+    },
+    resolver: zodResolver(experienceSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
+  });
 
-    Alert.alert("Éxito", "Experiencia agregada correctamente");
+  const handleAdd = () => {
+    const id = Date.now().toString();
+    void handleSubmit((formData) => {
+      const newExperience: Experience = {
+        id,
+        ...formData,
+      };
+
+      addExperience(newExperience);
+      reset();
+      Alert.alert("Éxito", "Experiencia agregada correctamente");
+    })();
   };
 
   const handleDelete = (id: string) => {
@@ -777,44 +908,81 @@ export default function ExperienceScreen() {
       <View style={styles.content}>
         <Text style={styles.sectionTitle}>Agregar Nueva Experiencia</Text>
 
-        <InputField
-          label="Empresa *"
-          placeholder="Nombre de la empresa"
-          value={formData.company}
-          onChangeText={(text) => setFormData({ ...formData, company: text })}
+        <Controller
+          control={control}
+          name="company"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Empresa *"
+              placeholder="Nombre de la empresa"
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+            />
+          )}
         />
 
-        <InputField
-          label="Cargo *"
-          placeholder="Tu posición"
-          value={formData.position}
-          onChangeText={(text) => setFormData({ ...formData, position: text })}
+        <Controller
+          control={control}
+          name="position"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Cargo *"
+              placeholder="Tu posición"
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+            />
+          )}
         />
 
-        <InputField
-          label="Fecha de Inicio *"
-          placeholder="Ej: Enero 2020"
-          value={formData.startDate}
-          onChangeText={(text) => setFormData({ ...formData, startDate: text })}
+        <Controller
+          control={control}
+          name="startDate"
+          render={({ field, fieldState }) => (
+            <DatePickerField
+              label="Fecha de Inicio *"
+              placeholder="Selecciona mes y año"
+              value={field.value}
+              onChangeText={field.onChange}
+              error={fieldState.error?.message}
+            />
+          )}
         />
 
-        <InputField
-          label="Fecha de Fin"
-          placeholder="Ej: Diciembre 2023 o 'Actual'"
-          value={formData.endDate}
-          onChangeText={(text) => setFormData({ ...formData, endDate: text })}
+        <Controller
+          control={control}
+          name="endDate"
+          render={({ field, fieldState }) => (
+            <DatePickerField
+              label="Fecha de Fin"
+              placeholder="Opcional; vacío significa Actual"
+              value={field.value}
+              onChangeText={field.onChange}
+              error={fieldState.error?.message}
+              clearable
+            />
+          )}
         />
 
-        <InputField
-          label="Descripción"
-          placeholder="Describe tus responsabilidades y logros..."
-          value={formData.description}
-          onChangeText={(text) =>
-            setFormData({ ...formData, description: text })
-          }
-          multiline
-          numberOfLines={4}
-          style={{ height: 100, textAlignVertical: "top" }}
+        <Controller
+          control={control}
+          name="description"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Descripción"
+              placeholder="Describe tus responsabilidades y logros..."
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+              multiline
+              numberOfLines={4}
+              style={{ height: 100, textAlignVertical: "top" }}
+            />
+          )}
         />
 
         <NavigationButton title="Agregar Experiencia" onPress={handleAdd} />
@@ -1233,98 +1401,160 @@ const styles = StyleSheet.create({
 ðŸ“„ ARCHIVO: src\app\personal-info.tsx
 ================================================
 
-import React, {useState,useEffect} from "react";
-import { View,StyleSheet,ScrollView,Alert} from "react-native";
-import {useRouter} from "expo-router";
-import {InputField} from "../components/InputField";
-import {NavigationButton} from  "../components/NavigationButton";
-import {useCVContext} from "../../context/CVContext";
-import {PersonalInfo} from "../../types/cv.types";
+import React, { useEffect } from "react";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useRouter } from "expo-router";
+import { InputField } from "../components/InputField";
+import { NavigationButton } from "../components/NavigationButton";
+import { useCVContext } from "../../context/CVContext";
+import { PersonalInfo } from "../../types/cv.types";
 
-export default function PersonalInfoScreen(){
-    const router=useRouter();
-    const {cvData,updatePersonalInfo}=useCVContext();
-    const [formData,setFormData]=useState<PersonalInfo>(cvData.personalInfo);
+const personalInfoSchema = z.object({
+  fullName: z.string().trim().min(1, "El nombre es obligatorio"),
+  email: z
+    .string()
+    .trim()
+    .min(1, "El email es obligatorio")
+    .email("Ingresa un email válido"),
+  phone: z
+    .string()
+    .regex(/^\d*$/, "El teléfono solo debe contener números"),
+  location: z.string(),
+  summary: z.string(),
+});
 
-    useEffect(()=>{
-        setFormData(cvData.personalInfo);
+export default function PersonalInfoScreen() {
+  const router = useRouter();
+  const { cvData, updatePersonalInfo } = useCVContext();
+  const {
+    control,
+    handleSubmit,
+    reset,
+  } = useForm<PersonalInfo>({
+    defaultValues: cvData.personalInfo,
+    resolver: zodResolver(personalInfoSchema),
+    mode: "onChange",
+    reValidateMode: "onChange",
+  });
 
-    },[cvData.personalInfo]);
+  useEffect(() => {
+    reset(cvData.personalInfo);
+  }, [cvData.personalInfo, reset]);
 
-    const handleSave = () =>{
-        if(!formData.fullName||!formData.email){
-            Alert.alert("Error","Porfavor completa al menos el nombre y el email");
-            return;
-        }
-        updatePersonalInfo(formData);
-        Alert.alert("Exito","Informacion guardada correctamente",[
-            {text: "OK" , onPress:()=>router.back()},
-        ]);
-    };
-    return (
-        <ScrollView style={styles.container}>
-            <View style={styles.content}>
-                <InputField
-                label="Nombre Completo"
-                placeholder="Juan Perez"
-                value={formData.fullName}
-                onChangeText={(text)=>setFormData({ ...formData,fullName: text})}
-                />
-                <InputField
-                label="Email *"placeholder="juan@email.com"
-                value={formData.email}
-                onChangeText={(text)=>setFormData({...formData,email:text})}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                />
-                <InputField
-                label="Telefono"
-                placeholder="+593 99 999 9999"
-                value={formData.phone}
-                onChangeText={(text)=>setFormData({...formData,phone:text})}
-                keyboardType="phone-pad"
-                
-                />
+  const handleSave = handleSubmit((values) => {
+    updatePersonalInfo(values);
+    Alert.alert("Éxito", "Información guardada correctamente", [
+      { text: "OK", onPress: () => router.back() },
+    ]);
+  });
 
-                <InputField
-                    label="Ubicacion"
-                    placeholder="Quito,Ecuador"
-                    value={formData.location}
-                    onChangeText={(text)=>setFormData({...formData,location:text})}
-                />
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.content}>
+        <Controller
+          control={control}
+          name="fullName"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Nombre Completo *"
+              placeholder="Juan Pérez"
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+              autoCapitalize="words"
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="email"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Email *"
+              placeholder="juan@email.com"
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="phone"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Teléfono"
+              placeholder="0999999999"
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+              keyboardType="phone-pad"
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="location"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Ubicación"
+              placeholder="Quito, Ecuador"
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="summary"
+          render={({ field, fieldState }) => (
+            <InputField
+              label="Resumen Profesional"
+              placeholder="Describe brevemente tu perfil profesional..."
+              value={field.value}
+              onChangeText={field.onChange}
+              onBlur={field.onBlur}
+              error={fieldState.error?.message}
+              multiline
+              numberOfLines={4}
+              style={{ height: 100, textAlignVertical: "top" }}
+            />
+          )}
+        />
 
-                <InputField
-                    label="Resumen Profesional"
-                    placeholder="Describe brevemente tu perfil profesional...."
-                    value={formData.summary}
-                    onChangeText={(text)=>setFormData({...formData,summary:text})}
-                    multiline
-                    numberOfLines={4}
-                    style={{height:100,textAlignVertical:"top"}}
-                />
-
-                <NavigationButton title="Guardar Informacion" onPress={handleSave}/>
-                    
-                    <NavigationButton
-                        title="Cancelar"
-                        onPress={()=>router.back()}
-                        variant="secundary"
-                    />
-
-            </View>
-        </ScrollView>
-    );
-
+        <NavigationButton
+          title="Guardar Información"
+          onPress={handleSave}
+        />
+        <NavigationButton
+          title="Cancelar"
+          onPress={() => router.back()}
+          variant="secundary"
+        />
+      </View>
+    </ScrollView>
+  );
 }
-const styles=StyleSheet.create({
-    container:{
-        flex:1,
-        backgroundColor:"#f5f55f5"
-    },
-    content:{
-        padding:20,
-    },
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  content: {
+    padding: 20,
+  },
 });
 
 ================================================
@@ -1403,6 +1633,433 @@ export default function RootLayout(){
   )
 
 }
+
+================================================
+ðŸ“„ ARCHIVO: src\components\animated-icon.tsx
+================================================
+
+import { Image } from 'expo-image';
+import * as SplashScreen from 'expo-splash-screen';
+import { useState } from 'react';
+import { Dimensions, StyleSheet, View } from 'react-native';
+import Animated, { Easing, Keyframe } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+
+const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
+const DURATION = 600;
+
+export function AnimatedSplashOverlay() {
+  const [animate, setAnimate] = useState(false);
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) return null;
+
+  const splashKeyframe = new Keyframe({
+    0: {
+      transform: [{ scale: 1 }],
+      opacity: 1,
+    },
+    20: {
+      opacity: 1,
+    },
+    70: {
+      opacity: 0,
+      easing: Easing.elastic(0.7),
+    },
+    100: {
+      opacity: 0,
+      transform: [{ scale: 1 }],
+      easing: Easing.elastic(0.7),
+    },
+  });
+
+  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+
+  return animate ? (
+    <Animated.View
+      entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
+        'worklet';
+        if (finished) {
+          scheduleOnRN(setVisible, false);
+        }
+      })}
+      style={styles.splashOverlay}>
+      {image}
+    </Animated.View>
+  ) : (
+    <View
+      onLayout={() => {
+        SplashScreen.hideAsync().finally(() => {
+          setAnimate(true);
+        });
+      }}
+      style={styles.splashOverlay}>
+      {image}
+    </View>
+  );
+}
+
+const keyframe = new Keyframe({
+  0: {
+    transform: [{ scale: INITIAL_SCALE_FACTOR }],
+  },
+  100: {
+    transform: [{ scale: 1 }],
+    easing: Easing.elastic(0.7),
+  },
+});
+
+const logoKeyframe = new Keyframe({
+  0: {
+    transform: [{ scale: 1.3 }],
+    opacity: 0,
+  },
+  40: {
+    transform: [{ scale: 1.3 }],
+    opacity: 0,
+    easing: Easing.elastic(0.7),
+  },
+  100: {
+    opacity: 1,
+    transform: [{ scale: 1 }],
+    easing: Easing.elastic(0.7),
+  },
+});
+
+const glowKeyframe = new Keyframe({
+  0: {
+    transform: [{ rotateZ: '0deg' }],
+  },
+  100: {
+    transform: [{ rotateZ: '7200deg' }],
+  },
+});
+
+export function AnimatedIcon() {
+  return (
+    <View style={styles.iconContainer}>
+      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
+        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
+      </Animated.View>
+
+      <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
+      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
+        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+      </Animated.View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  imageContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glow: {
+    width: 201,
+    height: 201,
+    position: 'absolute',
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 128,
+    height: 128,
+    zIndex: 100,
+  },
+  image: {
+    width: 76,
+    height: 71,
+  },
+  background: {
+    borderRadius: 40,
+    experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
+    width: 128,
+    height: 128,
+    position: 'absolute',
+  },
+  splashOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#208AEF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+});
+
+
+================================================
+ðŸ“„ ARCHIVO: src\components\animated-icon.web.tsx
+================================================
+
+import { Image } from 'expo-image';
+import { StyleSheet, View } from 'react-native';
+import Animated, { Keyframe, Easing } from 'react-native-reanimated';
+
+import classes from './animated-icon.module.css';
+const DURATION = 300;
+
+export function AnimatedSplashOverlay() {
+  return null;
+}
+
+const keyframe = new Keyframe({
+  0: {
+    transform: [{ scale: 0 }],
+  },
+  60: {
+    transform: [{ scale: 1.2 }],
+    easing: Easing.elastic(1.2),
+  },
+  100: {
+    transform: [{ scale: 1 }],
+    easing: Easing.elastic(1.2),
+  },
+});
+
+const logoKeyframe = new Keyframe({
+  0: {
+    opacity: 0,
+  },
+  60: {
+    transform: [{ scale: 1.2 }],
+    opacity: 0,
+    easing: Easing.elastic(1.2),
+  },
+  100: {
+    transform: [{ scale: 1 }],
+    opacity: 1,
+    easing: Easing.elastic(1.2),
+  },
+});
+
+const glowKeyframe = new Keyframe({
+  0: {
+    transform: [{ rotateZ: '-180deg' }, { scale: 0.8 }],
+    opacity: 0,
+  },
+  [DURATION / 1000]: {
+    transform: [{ rotateZ: '0deg' }, { scale: 1 }],
+    opacity: 1,
+    easing: Easing.elastic(0.7),
+  },
+  100: {
+    transform: [{ rotateZ: '7200deg' }],
+  },
+});
+
+export function AnimatedIcon() {
+  return (
+    <View style={styles.iconContainer}>
+      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
+        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
+      </Animated.View>
+
+      <Animated.View style={styles.background} entering={keyframe.duration(DURATION)}>
+        <div className={classes.expoLogoBackground} />
+      </Animated.View>
+
+      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
+        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+      </Animated.View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    width: '100%',
+    zIndex: 1000,
+    position: 'absolute',
+    top: 128 / 2 + 138,
+  },
+  imageContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glow: {
+    width: 201,
+    height: 201,
+    position: 'absolute',
+  },
+  iconContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 128,
+    height: 128,
+  },
+  image: {
+    position: 'absolute',
+    width: 76,
+    height: 71,
+  },
+  background: {
+    width: 128,
+    height: 128,
+    position: 'absolute',
+  },
+});
+
+
+================================================
+ðŸ“„ ARCHIVO: src\components\app-tabs.tsx
+================================================
+
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { useColorScheme } from 'react-native';
+
+import { Colors } from '@/constants/theme';
+
+export default function AppTabs() {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+
+  return (
+    <NativeTabs
+      backgroundColor={colors.background}
+      indicatorColor={colors.backgroundElement}
+      labelStyle={{ selected: { color: colors.text } }}>
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/home.png')}
+          renderingMode="template"
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="explore">
+        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/explore.png')}
+          renderingMode="template"
+        />
+      </NativeTabs.Trigger>
+    </NativeTabs>
+  );
+}
+
+
+================================================
+ðŸ“„ ARCHIVO: src\components\app-tabs.web.tsx
+================================================
+
+import {
+  Tabs,
+  TabList,
+  TabTrigger,
+  TabSlot,
+  TabTriggerSlotProps,
+  TabListProps,
+} from 'expo-router/ui';
+import { SymbolView } from 'expo-symbols';
+import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
+
+import { ExternalLink } from './external-link';
+import { ThemedText } from './themed-text';
+import { ThemedView } from './themed-view';
+
+import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+
+export default function AppTabs() {
+  return (
+    <Tabs>
+      <TabSlot style={{ height: '100%' }} />
+      <TabList asChild>
+        <CustomTabList>
+          <TabTrigger name="home" href="/" asChild>
+            <TabButton>Home</TabButton>
+          </TabTrigger>
+          <TabTrigger name="explore" href="/explore" asChild>
+            <TabButton>Explore</TabButton>
+          </TabTrigger>
+        </CustomTabList>
+      </TabList>
+    </Tabs>
+  );
+}
+
+export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+  return (
+    <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
+      <ThemedView
+        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
+        style={styles.tabButtonView}>
+        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
+          {children}
+        </ThemedText>
+      </ThemedView>
+    </Pressable>
+  );
+}
+
+export function CustomTabList(props: TabListProps) {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
+
+  return (
+    <View {...props} style={styles.tabListContainer}>
+      <ThemedView type="backgroundElement" style={styles.innerContainer}>
+        <ThemedText type="smallBold" style={styles.brandText}>
+          Expo Starter
+        </ThemedText>
+
+        {props.children}
+
+        <ExternalLink href="https://docs.expo.dev" asChild>
+          <Pressable style={styles.externalPressable}>
+            <ThemedText type="link">Docs</ThemedText>
+            <SymbolView
+              tintColor={colors.text}
+              name={{ ios: 'arrow.up.right.square', web: 'link' }}
+              size={12}
+            />
+          </Pressable>
+        </ExternalLink>
+      </ThemedView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabListContainer: {
+    position: 'absolute',
+    width: '100%',
+    padding: Spacing.three,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  innerContainer: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.five,
+    borderRadius: Spacing.five,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexGrow: 1,
+    gap: Spacing.two,
+    maxWidth: MaxContentWidth,
+  },
+  brandText: {
+    marginRight: 'auto',
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  tabButtonView: {
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  externalPressable: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.one,
+    marginLeft: Spacing.three,
+  },
+});
+
 
 ================================================
 ðŸ“„ ARCHIVO: src\components\CVPreview.tsx
@@ -1595,17 +2252,286 @@ const styles = StyleSheet.create({
 
 
 ================================================
+ðŸ“„ ARCHIVO: src\components\DatePickerField.tsx
+================================================
+
+import React, { useState } from "react";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import DateTimePicker, {
+  type DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
+import {
+  type DatePickerPrecision,
+  formatPickerValue,
+  parseInputDate,
+  parsePickerValue,
+  pickerValueToInputDate,
+} from "../../types/datePickerUtils";
+
+const webInputStyle: React.CSSProperties = {
+  boxSizing: "border-box",
+  width: "100%",
+  minHeight: 48,
+  padding: 12,
+  borderRadius: 8,
+  backgroundColor: "#fff",
+  fontSize: 16,
+};
+
+const webClearButtonStyle: React.CSSProperties = {
+  display: "block",
+  marginLeft: "auto",
+  marginTop: 8,
+  border: 0,
+  padding: 0,
+  background: "transparent",
+  color: "#3498db",
+  fontSize: 14,
+  cursor: "pointer",
+};
+
+export interface DatePickerFieldProps {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+  error?: string;
+  precision?: DatePickerPrecision;
+  clearable?: boolean;
+}
+
+export const DatePickerField = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  error,
+  precision = "month",
+  clearable = false,
+}: DatePickerFieldProps) => {
+  const [show, setShow] = useState(false);
+
+  const handleNativeChange = (
+    event: DateTimePickerEvent,
+    selectedDate?: Date
+  ) => {
+    if (Platform.OS === "android") {
+      setShow(false);
+    }
+
+    if (event.type !== "dismissed" && selectedDate) {
+      onChangeText(formatPickerValue(selectedDate, precision));
+    }
+  };
+
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.label}>{label}</Text>
+        {React.createElement("input", {
+          type: precision === "month" ? "month" : "date",
+          "aria-label": label,
+          value: pickerValueToInputDate(value, precision),
+          onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+            const date = parseInputDate(event.currentTarget.value, precision);
+            onChangeText(date ? formatPickerValue(date, precision) : "");
+          },
+          style: {
+            ...webInputStyle,
+            border: `1px solid ${error ? "#e74c3c" : "#ddd"}`,
+          },
+        })}
+        {!value && placeholder ? (
+          <Text style={styles.placeholder}>{placeholder}</Text>
+        ) : null}
+        {clearable && value !== "" ? (
+          React.createElement(
+            "button",
+            {
+              type: "button",
+              onClick: () => onChangeText(""),
+              style: webClearButtonStyle,
+            },
+            "Quitar fecha"
+          )
+        ) : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.label}>{label}</Text>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={[styles.input, error && styles.inputError]}
+        onPress={() =>
+          setShow((isShowing) => (Platform.OS === "ios" ? !isShowing : true))
+        }
+        activeOpacity={0.7}
+      >
+        <Text style={{ color: value ? "#000" : "#999", fontSize: 16 }}>
+          {value || placeholder || "Seleccionar fecha"}
+        </Text>
+      </TouchableOpacity>
+
+      {clearable && value !== "" && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => onChangeText("")}
+          style={styles.clearButton}
+        >
+          <Text style={styles.clearButtonText}>Quitar fecha</Text>
+        </TouchableOpacity>
+      )}
+
+      {show && (
+        <DateTimePicker
+          value={parsePickerValue(value, precision)}
+          mode="date"
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={handleNativeChange}
+        />
+      )}
+      {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  inputError: {
+    borderColor: "#e74c3c",
+  },
+  placeholder: {
+    color: "#999",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  clearButton: {
+    alignSelf: "flex-end",
+    paddingTop: 8,
+  },
+  clearButtonText: {
+    color: "#3498db",
+    fontSize: 14,
+  },
+  errorText: {
+    color: "#e74c3c",
+    fontSize: 12,
+    marginTop: 4,
+  },
+});
+
+
+================================================
+ðŸ“„ ARCHIVO: src\components\external-link.tsx
+================================================
+
+import { Href, Link } from 'expo-router';
+import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
+import { type ComponentProps } from 'react';
+
+type Props = Omit<ComponentProps<typeof Link>, 'href'> & { href: Href & string };
+
+export function ExternalLink({ href, ...rest }: Props) {
+  return (
+    <Link
+      target="_blank"
+      {...rest}
+      href={href}
+      onPress={async (event) => {
+        if (process.env.EXPO_OS !== 'web') {
+          // Prevent the default behavior of linking to the default browser on native.
+          event.preventDefault();
+          // Open the link in an in-app browser.
+          await openBrowserAsync(href, {
+            presentationStyle: WebBrowserPresentationStyle.AUTOMATIC,
+          });
+        }
+      }}
+    />
+  );
+}
+
+
+================================================
+ðŸ“„ ARCHIVO: src\components\hint-row.tsx
+================================================
+
+import type { ReactNode } from 'react';
+import { View, StyleSheet } from 'react-native';
+
+import { ThemedText } from './themed-text';
+import { ThemedView } from './themed-view';
+
+import { Spacing } from '@/constants/theme';
+
+type HintRowProps = {
+  title?: string;
+  hint?: ReactNode;
+};
+
+export function HintRow({ title = 'Try editing', hint = 'app/index.tsx' }: HintRowProps) {
+  return (
+    <View style={styles.stepRow}>
+      <ThemedText type="small">{title}</ThemedText>
+      <ThemedView type="backgroundSelected" style={styles.codeSnippet}>
+        <ThemedText themeColor="textSecondary">{hint}</ThemedText>
+      </ThemedView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  stepRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  codeSnippet: {
+    borderRadius: Spacing.two,
+    paddingVertical: Spacing.half,
+    paddingHorizontal: Spacing.two,
+  },
+});
+
+
+================================================
 ðŸ“„ ARCHIVO: src\components\InputField.tsx
 ================================================
 
 import React from "react"
 import {
-View,
-Text,
-TextInput,
-StyleSheet,
-TextInputProps,
-
+    View,
+    Text,
+    TextInput,
+    StyleSheet,
+    TextInputProps,
 } from "react-native"
 
 interface InputFieldProps extends TextInputProps{
@@ -1614,59 +2540,47 @@ interface InputFieldProps extends TextInputProps{
 }
 
 export const InputField =({label, error, ...props}: InputFieldProps)=>{
-
-return(
-    <View>
-        <Text style={styles .container}></Text>
-        <TextInput
-        style={[styles.input,error && styles.inputError]}
-        placeholderTextColor="#999"
-        {...props}
-        />
-    {error && <Text style={styles.errorText}>{error}</Text>}
-
-    </View>
-
-);
-
+    return (
+        <View style={styles.container}>
+            <Text style={styles.label}>{label}</Text>
+            <TextInput
+                style={[styles.input, error && styles.inputError]}
+                placeholderTextColor="#999"
+                accessibilityLabel={label}
+                accessibilityHint={error}
+                {...props}
+            />
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        </View>
+    );
 };
 
-const styles =StyleSheet.create({
-    container:{
+const styles = StyleSheet.create({
+    container: {
         marginBottom: 16,
-
     },
-    label:{
-        fontSize:16,
-        fontWeight:"600",
-        color:"#333",
-        marginBottom:8,
-
-
+    label: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#333",
+        marginBottom: 8,
     },
     input: {
-        borderWidth:1,
-        borderColor:"#ddd",
-        borderRadius:8,
-        padding:12,
-        fontSize:16,
-        backgroundColor:"#fff"
-
-
+        borderWidth: 1,
+        borderColor: "#ddd",
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+        backgroundColor: "#fff",
     },
     inputError: {
-        borderColor:"#e74c3c",
-
+        borderColor: "#e74c3c",
     },
-    errorText:{
-        color:"#e74c3c",
-        fontSize:12,
-        marginTop:4,
-
+    errorText: {
+        color: "#e74c3c",
+        fontSize: 12,
+        marginTop: 4,
     },
-
-
-
 });
 
 ================================================
@@ -1739,6 +2653,107 @@ const styles=StyleSheet.create({
 });
 
 ================================================
+ðŸ“„ ARCHIVO: src\components\themed-text.tsx
+================================================
+
+import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+
+import { Fonts, ThemeColor } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+export type ThemedTextProps = TextProps & {
+  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  themeColor?: ThemeColor;
+};
+
+export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
+  const theme = useTheme();
+
+  return (
+    <Text
+      style={[
+        { color: theme[themeColor ?? 'text'] },
+        type === 'default' && styles.default,
+        type === 'title' && styles.title,
+        type === 'small' && styles.small,
+        type === 'smallBold' && styles.smallBold,
+        type === 'subtitle' && styles.subtitle,
+        type === 'link' && styles.link,
+        type === 'linkPrimary' && styles.linkPrimary,
+        type === 'code' && styles.code,
+        style,
+      ]}
+      {...rest}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  small: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: 500,
+  },
+  smallBold: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: 700,
+  },
+  default: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: 500,
+  },
+  title: {
+    fontSize: 48,
+    fontWeight: 600,
+    lineHeight: 52,
+  },
+  subtitle: {
+    fontSize: 32,
+    lineHeight: 44,
+    fontWeight: 600,
+  },
+  link: {
+    lineHeight: 30,
+    fontSize: 14,
+  },
+  linkPrimary: {
+    lineHeight: 30,
+    fontSize: 14,
+    color: '#3c87f7',
+  },
+  code: {
+    fontFamily: Fonts.mono,
+    fontWeight: Platform.select({ android: 700 }) ?? 500,
+    fontSize: 12,
+  },
+});
+
+
+================================================
+ðŸ“„ ARCHIVO: src\components\themed-view.tsx
+================================================
+
+import { View, type ViewProps } from 'react-native';
+
+import { ThemeColor } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
+
+export type ThemedViewProps = ViewProps & {
+  lightColor?: string;
+  darkColor?: string;
+  type?: ThemeColor;
+};
+
+export function ThemedView({ style, lightColor, darkColor, type, ...otherProps }: ThemedViewProps) {
+  const theme = useTheme();
+
+  return <View style={[{ backgroundColor: theme[type ?? 'background'] }, style]} {...otherProps} />;
+}
+
+
+================================================
 ðŸ“„ ARCHIVO: src\components\ui\collapsible.tsx
 ================================================
 
@@ -1805,6 +2820,55 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.three,
     marginLeft: Spacing.four,
     padding: Spacing.four,
+  },
+});
+
+
+================================================
+ðŸ“„ ARCHIVO: src\components\web-badge.tsx
+================================================
+
+import { version } from 'expo/package.json';
+import { Image } from 'expo-image';
+import { useColorScheme, StyleSheet } from 'react-native';
+
+import { ThemedText } from './themed-text';
+import { ThemedView } from './themed-view';
+
+import { Spacing } from '@/constants/theme';
+
+export function WebBadge() {
+  const scheme = useColorScheme();
+
+  return (
+    <ThemedView style={styles.container}>
+      <ThemedText type="code" themeColor="textSecondary" style={styles.versionText}>
+        v{version}
+      </ThemedText>
+      <Image
+        source={
+          scheme === 'dark'
+            ? require('@/assets/images/expo-badge-white.png')
+            : require('@/assets/images/expo-badge.png')
+        }
+        style={styles.badgeImage}
+      />
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    padding: Spacing.five,
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  versionText: {
+    textAlign: 'center',
+  },
+  badgeImage: {
+    width: 123,
+    aspectRatio: 123 / 24,
   },
 });
 
@@ -1994,3 +3058,122 @@ export interface CVData {
   experiences: Experience[];
   education: Education[];
 }
+
+================================================
+ðŸ“„ ARCHIVO: types\datePickerUtils.ts
+================================================
+
+export type DatePickerPrecision = "month" | "year";
+
+export const parsePickerValue = (
+  value: string,
+  precision: DatePickerPrecision
+): Date => {
+  if (precision === "year" && /^\d{4}$/.test(value)) {
+    return new Date(Number(value), 0, 1, 12);
+  }
+
+  const monthYearMatch = /^(\d{1,2})\/(\d{4})$/.exec(value);
+  if (monthYearMatch) {
+    return new Date(Number(monthYearMatch[2]), Number(monthYearMatch[1]) - 1, 1, 12);
+  }
+
+  const webMonthMatch = /^(\d{4})-(\d{2})$/.exec(value);
+  if (webMonthMatch) {
+    return new Date(Number(webMonthMatch[1]), Number(webMonthMatch[2]) - 1, 1, 12);
+  }
+
+  const isoDateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (isoDateMatch) {
+    return new Date(
+      Number(isoDateMatch[1]),
+      Number(isoDateMatch[2]) - 1,
+      Number(isoDateMatch[3]),
+      12
+    );
+  }
+
+  return new Date();
+};
+
+export const formatPickerValue = (
+  date: Date,
+  precision: DatePickerPrecision
+): string => {
+  const year = date.getFullYear().toString();
+  if (precision === "year") {
+    return year;
+  }
+
+  return `${(date.getMonth() + 1).toString().padStart(2, "0")}/${year}`;
+};
+
+export const pickerValueToInputDate = (
+  value: string,
+  precision: DatePickerPrecision
+): string => {
+  if (!value) {
+    return "";
+  }
+
+  if (precision === "year" && /^\d{4}$/.test(value)) {
+    return `${value}-01-01`;
+  }
+
+  if (precision === "month" && /^\d{1,2}\/\d{4}$/.test(value)) {
+    const [month, year] = value.split("/");
+    return `${year}-${month.padStart(2, "0")}`;
+  }
+
+  const monthYearMatch = /^(\d{1,2})\/(\d{4})$/.exec(value);
+  if (monthYearMatch) {
+    const month = monthYearMatch[1].padStart(2, "0");
+    return `${monthYearMatch[2]}-${month}-01`;
+  }
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+};
+
+export const parseInputDate = (
+  value: string,
+  precision: DatePickerPrecision
+): Date | null => {
+  if (precision === "month") {
+    const match = /^(\d{4})-(\d{2})$/.exec(value);
+    if (!match) {
+      return null;
+    }
+
+    return new Date(Number(match[1]), Number(match[2]) - 1, 1, 12);
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  return new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    12
+  );
+};
+
+export const isPickerValueBefore = (
+  value: string,
+  otherValue: string,
+  precision: DatePickerPrecision
+): boolean => {
+  const date = parsePickerValue(value, precision);
+  const otherDate = parsePickerValue(otherValue, precision);
+
+  if (precision === "year") {
+    return date.getFullYear() < otherDate.getFullYear();
+  }
+
+  return (
+    date.getFullYear() * 12 + date.getMonth() <
+    otherDate.getFullYear() * 12 + otherDate.getMonth()
+  );
+};

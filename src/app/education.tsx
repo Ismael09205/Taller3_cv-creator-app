@@ -20,9 +20,17 @@ import { useCVContext } from "../../context/CVContext";
 import { Education } from "../../types/cv.types";
 
 const educationSchema = z.object({
-  institution: z.string().trim().min(1, "La institución es obligatoria"),
-  degree: z.string().trim().min(1, "El título o grado es obligatorio"),
-  field: z.string(),
+  institution: z
+    .string()
+    .trim()
+    .min(1, "La institución es obligatoria")
+    .max(100, "La institución no puede superar 100 caracteres"),
+  degree: z
+    .string()
+    .trim()
+    .min(1, "El título o grado es obligatorio")
+    .max(100, "El título o grado no puede superar 100 caracteres"),
+  field: z.string().max(100, "El área no puede superar 100 caracteres"),
   graduationYear: z
     .string()
     .refine(
@@ -87,6 +95,7 @@ export default function EducationScreen() {
               onChangeText={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
+              maxLength={100}
             />
           )}
         />
@@ -102,6 +111,7 @@ export default function EducationScreen() {
               onChangeText={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
+              maxLength={100}
             />
           )}
         />
@@ -117,6 +127,7 @@ export default function EducationScreen() {
               onChangeText={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
+              maxLength={100}
             />
           )}
         />

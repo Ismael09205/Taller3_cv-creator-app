@@ -17,7 +17,7 @@ export default function RootLayout(){
       
       >
         <Stack.Screen
-        name="indez"
+        name="index"
         options={{
           title:"Crear CV",
           headerShown:true,

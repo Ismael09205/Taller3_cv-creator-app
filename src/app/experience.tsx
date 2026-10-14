@@ -20,16 +20,34 @@ import { Experience } from "../../types/cv.types";
 
 const experienceSchema = z
   .object({
-    company: z.string().trim().min(1, "La empresa es obligatoria"),
-    position: z.string().trim().min(1, "El cargo es obligatorio"),
-    startDate: z.string().min(1, "La fecha de inicio es obligatoria"),
-    endDate: z.string(),
-    description: z.string(),
+    company: z
+      .string()
+      .trim()
+      .min(1, "La empresa es obligatoria")
+      .max(100, "La empresa no puede superar 100 caracteres"),
+    position: z
+      .string()
+      .trim()
+      .min(1, "El cargo es obligatorio")
+      .max(100, "El cargo no puede superar 100 caracteres"),
+    startDate: z
+      .string()
+      .min(1, "La fecha de inicio es obligatoria")
+      .regex(/^(0[1-9]|1[0-2])\/\d{4}$/, "Selecciona una fecha válida"),
+    endDate: z
+      .string()
+      .refine(
+        (value) => value === "" || /^(0[1-9]|1[0-2])\/\d{4}$/.test(value),
+        "Selecciona una fecha válida"
+      ),
+    description: z
+      .string()
+      .max(1000, "La descripción no puede superar 1000 caracteres"),
   })
   .superRefine((values, context) => {
     if (
-      values.startDate &&
-      values.endDate &&
+      /^(0[1-9]|1[0-2])\/\d{4}$/.test(values.startDate) &&
+      /^(0[1-9]|1[0-2])\/\d{4}$/.test(values.endDate) &&
       isPickerValueBefore(values.endDate, values.startDate, "month")
     ) {
       context.addIssue({
@@ -101,6 +119,7 @@ export default function ExperienceScreen() {
               onChangeText={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
+              maxLength={100}
             />
           )}
         />
@@ -116,6 +135,7 @@ export default function ExperienceScreen() {
               onChangeText={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
+              maxLength={100}
             />
           )}
         />
@@ -160,6 +180,7 @@ export default function ExperienceScreen() {
               onChangeText={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
+              maxLength={1000}
               multiline
               numberOfLines={4}
               style={{ height: 100, textAlignVertical: "top" }}

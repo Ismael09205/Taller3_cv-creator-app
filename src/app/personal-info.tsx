@@ -8,19 +8,34 @@ import { InputField } from "../components/InputField";
 import { NavigationButton } from "../components/NavigationButton";
 import { useCVContext } from "../../context/CVContext";
 import { PersonalInfo } from "../../types/cv.types";
-
+//zod y react hook form 
 const personalInfoSchema = z.object({
-  fullName: z.string().trim().min(1, "El nombre es obligatorio"),
+  fullName: z
+    .string()
+    .trim()
+    .min(1, "El nombre es obligatorio")
+    .refine(
+      (value) => Array.from(value).length <= 30,
+      "El nombre no puede superar los 30 caracteres"
+    )
+    .regex(
+      /^[\p{L}\p{M} ]+$/u,
+      "El nombre solo puede contener letras y espacios"
+    ),
   email: z
     .string()
     .trim()
     .min(1, "El email es obligatorio")
+    .max(254, "El email no puede superar 254 caracteres")
     .email("Ingresa un email válido"),
   phone: z
     .string()
+    .max(15, "El teléfono no puede superar los 15 dígitos")
     .regex(/^\d*$/, "El teléfono solo debe contener números"),
-  location: z.string(),
-  summary: z.string(),
+  location: z.string().max(100, "La ubicación no puede superar 100 caracteres"),
+  summary: z
+    .string()
+    .max(500, "El resumen no puede superar los 500 caracteres"),
 });
 
 export default function PersonalInfoScreen() {
@@ -30,6 +45,8 @@ export default function PersonalInfoScreen() {
     control,
     handleSubmit,
     reset,
+    setError,
+    clearErrors,
   } = useForm<PersonalInfo>({
     defaultValues: cvData.personalInfo,
     resolver: zodResolver(personalInfoSchema),
@@ -59,7 +76,26 @@ export default function PersonalInfoScreen() {
               label="Nombre Completo *"
               placeholder="Juan Pérez"
               value={field.value}
-              onChangeText={field.onChange}
+              onChangeText={(text) => {
+                if (/[^\p{L}\p{M} ]/u.test(text)) {
+                  setError("fullName", {
+                    type: "validate",
+                    message: "El nombre solo puede contener letras y espacios",
+                  });
+                  return;
+                }
+
+                if (Array.from(text).length > 30) {
+                  setError("fullName", {
+                    type: "validate",
+                    message: "El nombre no puede superar los 30 caracteres",
+                  });
+                  return;
+                }
+
+                clearErrors("fullName");
+                field.onChange(text);
+              }}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
               autoCapitalize="words"
@@ -80,6 +116,7 @@ export default function PersonalInfoScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              maxLength={254}
             />
           )}
         />
@@ -95,6 +132,7 @@ export default function PersonalInfoScreen() {
               onBlur={field.onBlur}
               error={fieldState.error?.message}
               keyboardType="phone-pad"
+              maxLength={15}
             />
           )}
         />
@@ -109,6 +147,7 @@ export default function PersonalInfoScreen() {
               onChangeText={field.onChange}
               onBlur={field.onBlur}
               error={fieldState.error?.message}
+              maxLength={100}
             />
           )}
         />
@@ -125,6 +164,7 @@ export default function PersonalInfoScreen() {
               error={fieldState.error?.message}
               multiline
               numberOfLines={4}
+              maxLength={500}
               style={{ height: 100, textAlignVertical: "top" }}
             />
           )}
